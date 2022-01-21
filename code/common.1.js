@@ -185,18 +185,18 @@ function deep_smart_move(dest) {
 }
 
 function get_position(name) {
+	state.p_lead_pos = undefined;
 	send_cm(name, {type: "send_coords"});
 }
 
 function run_merchant() {
 	do_common_routine();
-
-	if (state.p_lead_pos == undefined) {
-		get_position(PARTY_LEAD);
-		return;
-	}
 	switch(state.task) {
 		case "mule": {
+			if (state.p_lead_pos == undefined) {
+				get_position(PARTY_LEAD);
+				return;
+			}
 			if (is_inventory_full()) {
 				state.banking = true;
 			} else if (is_inventory_empty()) {
@@ -218,6 +218,17 @@ function run_merchant() {
 				}
 			}
 		}
+		case "give_gear": {
+			if (state.p_lead_pos == undefined) {
+				return;
+			}
+			if(deep_smart_move({name: state.gear_receiver, x: state.p_lead_pos.x, y: state.p_lead_pos.y, map: state.p_lead_pos.map, max_dist: 5})) {
+				var item = character.items[state.give_inven_slot];
+				send_item(state.gear_receiver, state.give_inven_slot);
+				send_cm(state.gear_receiver, {type: "gear_up", gear: item});
+				state.task = undefined;
+			}
+		}
 	}
 }
 
@@ -225,6 +236,27 @@ function do_common_routine() {
 	recover_hp_or_mp();
 	loot();
 }
+
+function give_gear(id, gear) {
+	var found_gear = false;
+	for(let i in character.items) {
+		let item = character.items[i];
+		if(!item) {
+			continue;
+		}
+		if (item.name == gear.name && item.level == gear.level) {
+			state.task = "give_gear";
+			state.give_inven_slot = i;
+			found_gear = true;
+			state.gear_receiver = id;
+			get_position(id);
+		}
+	}
+	if(!found_gear) {
+		log("could not find " + gear)
+	}
+}
+ 
 
 function init() {
 	for(let i in PERSIST_STATE_VARS) {
@@ -236,48 +268,72 @@ function init() {
 	}
 
 	setInterval(function() {
-		if (character.name == MERCHANT) {
+		if (character.name != MERCHANT || state.task != "mule") {
 			return;
 		}
 
-		var e = get_entity(MERCHANT);
-		if (e) {
-			if (character.gold > 50000) {
-				send_gold(MERCHANT, character.gold);
-				return;
-			}
-			for(let i in character.items) {
-				var item = character.items[i];
-				if (!item) {
-					continue
-				}
-				is_hpot = item.name.indexOf("hpot") == 0;
-				is_mpot = item.name.indexOf("mpot") == 0;
-				if (!is_hpot && !is_mpot) {
-					log("sending " + item.name);
-					send_item(MERCHANT, i, item.q);
-					return;
-				}
+		for(let i in PARTY_MEMBERS) {
+			var e = get_entity(PARTY_MEMBERS[i]);
+			if (e && e.name != MERCHANT) {
+				send_cm(e.name, {type: "send_loot"});
 			}
 		}
-	}, 1000);
+
+	}, 2000);
 
 
 	character.on("cm",function(m) {
 		if (!is_friendly(m.name)){
 			return
 		}
-		log(m);
 		switch(m.message.type) {
 			case "send_coords":
+				log(m);
 				send_cm(m.name, {type: "coords", pos: { x: character.x, y: character.y, map: character.map, dist: 5}});
 				break;
 			case "coords":
-				if (m.name != PARTY_LEAD) {
+				state.p_lead_pos = m.message.pos;
+				state.smart_result = undefined;
+				break;
+			case "gear_up":
+				log(m);
+				if (m.name != MERCHANT) {
 					return;
 				}
-				state.p_lead_pos = m.message.pos
-				state.smart_result = undefined;
+				for(let i in character.items) {
+					let item = character.items[i];
+					if(!item) {
+						continue;
+					}
+					if (item.name == m.message.gear.name && item.level == m.message.gear.level) {
+						log("equipped")
+						equip(i, m.message.gear.slot);
+						break;
+					}
+				}
+				break;
+			case "send_loot":
+				if (m.name != MERCHANT) {
+					log("ignoring give_loot message from " + m.name);
+					return;
+				}
+				if (character.gold > 50000) {
+					send_gold(MERCHANT, character.gold);
+					return;
+				}
+				for(let i in character.items) {
+					var item = character.items[i];
+					if (!item) {
+						continue
+					}
+					is_hpot = item.name.indexOf("hpot") == 0;
+					is_mpot = item.name.indexOf("mpot") == 0;
+					if (!is_hpot && !is_mpot) {
+						log("sending " + item.name);
+						send_item(MERCHANT, i, item.q);
+						return;
+					}
+				}
 				break;
 			default: 
 				log("ON_CM: bad message", "yellow");
