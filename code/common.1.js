@@ -217,7 +217,7 @@ function run_merchant() {
 					}
 				}
 			}
-		}
+		} break;
 		case "give_gear": {
 			if (state.p_lead_pos == undefined) {
 				return;
@@ -228,7 +228,7 @@ function run_merchant() {
 				send_cm(state.gear_receiver, {type: "gear_up", gear: item});
 				state.task = undefined;
 			}
-		}
+		} break;
 	}
 }
 
