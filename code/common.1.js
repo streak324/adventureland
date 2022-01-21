@@ -1,31 +1,30 @@
-var hp_potion_threshold=0.80;
+const HP_POTION_THRESHOLD=0.80;
+const PARTY_HEAL_THRESHOLD=0.90;
+const PARTY_MEMBERS=["TrogWarrior1", "TrogMage1", "TrogPriest1", "TrogMerch1"];
+const PARTY_LEAD = "TrogWarrior1";
+const MERCHANT = "TrogMerch1";
+const PERSIST_STATE_VARS = ["task", "msearch", "attack_mode"];
+var state = {};
 
-var party_heal_threshold=0.90;
-
-var party_members=["TrogWarrior1", "TrogMage1", "TrogPriest1"];
-var msearch = {};
-
-function do_tank_role(attack_mode) {
-	recover_hp_or_mp();
-	loot();
+function do_tank_role() {
+	do_common_routine();
 
 	if (character.party != undefined && !is_friendly(character.party)) {
 		leave_party();
 	}
-	for (let i = 0; i < party_members.length; i++) {
-		//say(party_members[i]);
-		var c = get_entity(party_members[i]);
+	for (let i = 0; i < PARTY_MEMBERS.length; i++) {
+		var c = get_entity(PARTY_MEMBERS[i]);
 		if (c != undefined && c.party == undefined && c.name != character.name) {
 			send_party_invite(c.name);
 		}
 	}
 
-	if(!attack_mode || character.rip || is_moving(character)) return;
+	if(!state.attack_mode || character.rip || is_moving(character)) return;
 
 	var target=get_targeted_monster();
 	if(!target)
 	{
-		target=get_nearest_monster(msearch);
+		target=get_nearest_monster(state.msearch);
 		if(target) change_target(target);
 		else
 		{
@@ -40,7 +39,6 @@ function do_tank_role(attack_mode) {
 			character.x+(target.x-character.x)/2,
 			character.y+(target.y-character.y)/2
 			);
-		// Walk half the distance
 	}
 	else if(can_attack(target))
 	{
@@ -53,8 +51,9 @@ function do_tank_role(attack_mode) {
 	}
 }
 
-function set_msearch(_msearch) {
-	msearch = _msearch;	
+function set_state(state_var, state_val) {
+	state[state_var] = state_val;	
+	set(character.name + ":"+state_var, state_val);
 }
 
 function attack_leaders_target(leader) {
@@ -69,8 +68,7 @@ function attack_leaders_target(leader) {
 }
 
 function do_dps_role() {
-	recover_hp_or_mp();
-	loot();
+	do_common_routine();
 	if (character.party == undefined) return;
 	var leader = get_player(character.party);
 	if (leader != undefined) {
@@ -80,8 +78,7 @@ function do_dps_role() {
 }
 
 function do_heal_role() {
-	recover_hp_or_mp();
-	loot();
+	do_common_routine();
 	if (character.party == undefined) return;
 	var party = get_party();
 	for (var p in party) {
@@ -92,11 +89,10 @@ function do_heal_role() {
 		};
 		var hp_perc = pl.hp / pl.max_hp;
 		var hp_diff = pl.max_hp - pl.hp;
-		if (!is_on_cooldown("heal") && (hp_perc < party_heal_threshold || hp_diff > character.attack)) {
+		if (!is_on_cooldown("heal") && (hp_perc < PARTY_HEAL_THRESHOLD || hp_diff > character.attack)) {
 			heal(pl);
 		}
 	}
-
 }
 
 function recover_hp_or_mp() {
@@ -104,7 +100,7 @@ function recover_hp_or_mp() {
 		use_skill('use_mp');
 	}
 	var hp = character.hp / character.max_hp;
-	if(!is_on_cooldown("use_hp") && hp < hp_potion_threshold) {
+	if(!is_on_cooldown("use_hp") && hp < HP_POTION_THRESHOLD) {
 		use_skill('use_hp');
 	}
 }
@@ -123,18 +119,212 @@ function dist_sq(a, b) {
 	return dx * dx + dy * dy;
 }
 
-function follow(pl) {
+function follow(pl, max_dist=3) {
 	var dsq = dist_sq(pl, character)
-	const max_dist = 3;
-	//set_message(dsq);
 	if (dsq > max_dist * max_dist) {
 		move(
-			character.x+(pl.x-character.x)/3,
-			character.y+(pl.y-character.y)/3
+			character.x+(pl.x-character.x)/max_dist,
+			character.y+(pl.y-character.y)/max_dist
 		);
+		return false;
 	}
+	return true;
 }
 
 function is_friendly(name) {
-	return party_members.indexOf(name) > -1;
+	return PARTY_MEMBERS.indexOf(name) > -1;
 }
+
+function smart_move_p(d) {
+	state.smart_result = -1;
+	smart_move(d)
+		.then(_ => { state.smart_result = 1 })
+		.catch(_ => { state.smart_result = 0 });
+}
+
+//returns true if it reached the specified position
+function deep_smart_move(dest) {
+	if (smart.moving || state.smart_result === -1) {
+		return false;
+	}
+	if (dest.name) {
+		if (state.smart_result === 0) {
+			get_position(dest.name);
+			return false;
+		}
+
+		var e = get_entity(dest.name);
+		if (e) {
+			if (can_move_to({x: dest.x, y: dest.y})) {
+				return follow(e, dest.dist);
+			} else {
+				smart_move_p(e);
+			}
+			return false;
+		} else if (dest.map != character.map) {
+			smart_move_p(dest.map);
+		} else {
+			smart_move_p({x: dest.x, y: dest.y});
+		}
+		return false
+	} else if (dest.map) {
+		if (state.smart_result === 0) {
+			log("deep_smart_move: UNABLE TO FIND " + dest.map, "red");
+			return false;
+		}
+
+		if (dest.map == character.map) {
+			return true;
+		}
+		smart_move_p(dest.map)
+		return false;
+	}
+
+	log("deep_smart_move: UNABLE TO RESOLVE", "red");
+	return false;
+}
+
+function get_position(name) {
+	send_cm(name, {type: "send_coords"});
+}
+
+function run_merchant() {
+	do_common_routine();
+
+	if (state.p_lead_pos == undefined) {
+		get_position(PARTY_LEAD);
+		return;
+	}
+	switch(state.task) {
+		case "mule": {
+			if (is_inventory_full()) {
+				state.banking = true;
+			} else if (is_inventory_empty()) {
+				state.banking = false;
+			}
+
+			if (!state.banking) {
+				deep_smart_move({name: PARTY_LEAD, x: state.p_lead_pos.x, y: state.p_lead_pos.y, map: state.p_lead_pos.map, max_dist: 5})
+			} else {
+				if (deep_smart_move({map: "bank"})) {
+					if (character.gold > 0) {
+						bank_deposit(character.gold);
+					}
+					for(let i in character.items) {
+						if (!character.items[i]) continue;
+						bank_store(i);
+						return;
+					}
+				}
+			}
+		}
+	}
+}
+
+function do_common_routine() {
+	recover_hp_or_mp();
+	loot();
+}
+
+function init() {
+	for(let i in PERSIST_STATE_VARS) {
+		let varn = PERSIST_STATE_VARS[i];
+		let val = get(character.name + ":"+varn);
+		if (val !== null && val !== undefined) {
+			state[varn] = val;
+		}
+	}
+
+	setInterval(function() {
+		if (character.name == MERCHANT) {
+			return;
+		}
+
+		var e = get_entity(MERCHANT);
+		if (e) {
+			if (character.gold > 50000) {
+				send_gold(MERCHANT, character.gold);
+				return;
+			}
+			for(let i in character.items) {
+				var item = character.items[i];
+				if (!item) {
+					continue
+				}
+				is_hpot = item.name.indexOf("hpot") == 0;
+				is_mpot = item.name.indexOf("mpot") == 0;
+				if (!is_hpot && !is_mpot) {
+					log("sending " + item.name);
+					send_item(MERCHANT, i, item.q);
+					return;
+				}
+			}
+		}
+	}, 1000);
+
+
+	character.on("cm",function(m) {
+		if (!is_friendly(m.name)){
+			return
+		}
+		log(m);
+		switch(m.message.type) {
+			case "send_coords":
+				send_cm(m.name, {type: "coords", pos: { x: character.x, y: character.y, map: character.map, dist: 5}});
+				break;
+			case "coords":
+				if (m.name != PARTY_LEAD) {
+					return;
+				}
+				state.p_lead_pos = m.message.pos
+				state.smart_result = undefined;
+				break;
+			default: 
+				log("ON_CM: bad message", "yellow");
+		}
+	});
+
+	if (PARTY_LEAD == character.name) {
+		var ac = get_active_characters();
+		for(let i in PARTY_MEMBERS) {
+			var p = PARTY_MEMBERS[i] 
+			if (p != PARTY_LEAD && p != MERCHANT) {
+				log("starting up " + p);
+				start_character(p);
+			}
+		}
+	}
+}
+
+function is_inventory_full() {
+	var inven_space = character.items.length
+	var used_inven_space = 0;
+	for(let i in character.items) {
+		if (character.items[i]) {
+			used_inven_space++;
+		}
+	}
+	return used_inven_space == inven_space;
+}
+
+function is_inventory_empty() {
+	var used_inven_space = 0;
+	for(let i in character.items) {
+		if (character.items[i]) {
+			used_inven_space++;
+		}
+	}
+	return used_inven_space == 0;
+}
+
+function is_character_active(id) {
+	var ac = get_active_characters();
+	for(c in ac) {
+		if(c == id) return true;
+	}
+	return false;
+}
+
+
+init();
+
