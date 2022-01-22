@@ -168,14 +168,15 @@ function deep_smart_move(dest) {
 		}
 		return false
 	} else if (dest.map) {
+		if (dest.map == character.map) {
+			return true;
+		}
+
 		if (state.smart_result === 0) {
 			log("deep_smart_move: UNABLE TO FIND " + dest.map, "red");
 			return false;
 		}
 
-		if (dest.map == character.map) {
-			return true;
-		}
 		smart_move_p(dest.map)
 		return false;
 	}
