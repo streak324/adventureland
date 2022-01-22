@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "noImplicitAny": false,
+    "removeComments": true,
+    "preserveConstEnums": true,
+    "sourceMap": true,
+    "outDir": "out/tsc",
+  },
+  "files": [
+    "code/1/common.ts",
+    "code/merchant.ts",
+    "code/lib/adventureland.d.ts",
+  ],
+}

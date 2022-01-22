@@ -1,11 +1,11 @@
-const HP_POTION_THRESHOLD=0.80;
-const PARTY_HEAL_THRESHOLD=0.90;
-const PARTY_MEMBERS=["TrogWarrior1", "TrogMage1", "TrogPriest1", "TrogMerch1"];
-const PARTY_LEAD = "TrogWarrior1";
-const MERCHANT = "TrogMerch1";
-const PERSIST_STATE_VARS = ["task", "msearch", "attack_mode"];
+export const HP_POTION_THRESHOLD=0.80;
+export const PARTY_HEAL_THRESHOLD=0.90;
+export const PARTY_MEMBERS=["TrogWarrior1", "TrogMage1", "TrogPriest1", "TrogMerch1"];
+export const PARTY_LEAD = "TrogWarrior1";
+export const MERCHANT = "TrogMerch1";
+export const PERSIST_STATE_VARS = ["task", "msearch", "attack_mode"];
 
-interface State {
+export interface State {
 	attack_mode: boolean;
 	msearch: {},
 	task: string
@@ -20,7 +20,7 @@ interface State {
 	banking: boolean,
 }
 
-var state: State = {
+export var state: State = {
 	attack_mode: false,
 	msearch: {},
 	task: "",
@@ -168,7 +168,7 @@ function smart_move_p(d) {
 }
 
 //returns true if it reached the specified position
-function deep_smart_move(dest) {
+export function deep_smart_move(dest) {
 	if (smart.moving || state.smart_result === -1) {
 		return false;
 	}
@@ -210,55 +210,12 @@ function deep_smart_move(dest) {
 	return false;
 }
 
-function get_position(name) {
+export function get_position(name) {
 	state.p_lead_pos = undefined;
 	send_cm(name, {type: "send_coords"});
 }
 
-function run_merchant() {
-	do_common_routine();
-	switch(state.task) {
-		case "mule": {
-			if (state.p_lead_pos == undefined) {
-				get_position(PARTY_LEAD);
-				return;
-			}
-			if (is_inventory_full()) {
-				state.banking = true;
-			} else if (is_inventory_empty()) {
-				state.banking = false;
-			}
-
-			if (!state.banking) {
-				deep_smart_move({name: PARTY_LEAD, x: state.p_lead_pos.x, y: state.p_lead_pos.y, map: state.p_lead_pos.map, max_dist: 5})
-			} else {
-				if (deep_smart_move({map: "bank"})) {
-					if (character.gold > 0) {
-						bank_deposit(character.gold);
-					}
-					for(let i = 0; i < character.items.length; i++) {
-						if (!character.items[i]) continue;
-						bank_store(i);
-						return;
-					}
-				}
-			}
-		} break;
-		case "give_gear": {
-			if (state.p_lead_pos == undefined) {
-				return;
-			}
-			if(deep_smart_move({name: state.gear_receiver, x: state.p_lead_pos.x, y: state.p_lead_pos.y, map: state.p_lead_pos.map, max_dist: 5})) {
-				var item = character.items[state.give_inven_slot];
-				send_item(state.gear_receiver, state.give_inven_slot);
-				send_cm(state.gear_receiver, {type: "gear_up", gear: item});
-				state.task = undefined;
-			}
-		} break;
-	}
-}
-
-function do_common_routine() {
+export function do_common_routine() {
 	recover_hp_or_mp();
 	loot();
 }
@@ -378,7 +335,7 @@ function init() {
 	}
 }
 
-function is_inventory_full() {
+export function is_inventory_full() {
 	var inven_space = character.items.length
 	var used_inven_space = 0;
 	for(let i in character.items) {
@@ -389,7 +346,7 @@ function is_inventory_full() {
 	return used_inven_space == inven_space;
 }
 
-function is_inventory_empty() {
+export function is_inventory_empty() {
 	var used_inven_space = 0;
 	for(let i in character.items) {
 		if (character.items[i]) {
