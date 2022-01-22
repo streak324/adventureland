@@ -1,4 +1,14 @@
-import { do_common_routine, state, PARTY_LEAD, get_position, is_inventory_full, is_inventory_empty, deep_smart_move } from "./1/common"
+import { do_common_routine, state, PARTY_LEAD, get_position, is_inventory_full, is_inventory_empty, deep_smart_move} from "./1/common"
+
+state.task = undefined;
+
+init_merchant();
+
+module.exports = {
+	state
+};
+
+global.give_gear = give_gear;
 
 setInterval(function(){
 	do_common_routine();
@@ -42,3 +52,22 @@ setInterval(function(){
 		} break;
 	}
 },1000/4); // Loops every 1/4 seconds.
+
+
+function give_gear(id: string, i: number) {
+	var found_gear = false;
+	let item = character.items[i];
+	if (!item) {
+		return log("no item in slot", "red");
+	}
+
+	state.task = "give_gear";
+	state.give_inven_slot = i;
+	found_gear = true;
+	state.gear_receiver = id;
+	get_position(id);
+}
+
+function init_merchant() {
+	map_key("Q","snippet","exports.give_gear(character.target, 0)")
+}

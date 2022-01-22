@@ -9,6 +9,9 @@
   "files": [
     "code/1/common.ts",
     "code/merchant.ts",
+    "code/warrior.ts",
+    "code/mage.ts",
+    "code/priest.ts",
     "code/lib/adventureland.d.ts",
   ],
 }

@@ -324,6 +324,7 @@ declare global {
 	 * @param x 
 	 * @param y 
 	 */
+	function map_key(key: string, skill: string, code: string);
 	function move(x: number, y: number): Promise<void>
 	function mssince(date: Date): number
 	function reduce_cooldown(skill: SkillName, ms: number): void
