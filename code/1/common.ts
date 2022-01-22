@@ -4,7 +4,32 @@ const PARTY_MEMBERS=["TrogWarrior1", "TrogMage1", "TrogPriest1", "TrogMerch1"];
 const PARTY_LEAD = "TrogWarrior1";
 const MERCHANT = "TrogMerch1";
 const PERSIST_STATE_VARS = ["task", "msearch", "attack_mode"];
-var state = {};
+
+interface State {
+	attack_mode: boolean;
+	msearch: {},
+	task: string
+	p_lead_pos: {
+		x: number,
+		y: number,
+		map: string,
+	},
+	smart_result: number,
+	give_inven_slot: number,
+	gear_receiver: string,
+	banking: boolean,
+}
+
+var state: State = {
+	attack_mode: false,
+	msearch: {},
+	task: "",
+	p_lead_pos: undefined,
+	smart_result: -1,
+	give_inven_slot: -1,
+	gear_receiver: "",
+	banking: false,
+};
 
 function do_tank_role() {
 	do_common_routine();
@@ -13,7 +38,7 @@ function do_tank_role() {
 		leave_party();
 	}
 	for (let i = 0; i < PARTY_MEMBERS.length; i++) {
-		var c = get_entity(PARTY_MEMBERS[i]);
+		var c = get_player(PARTY_MEMBERS[i]);
 		if (c != undefined && c.party == undefined && c.name != character.name) {
 			send_party_invite(c.name);
 		}
@@ -73,7 +98,7 @@ function do_dps_role() {
 	var leader = get_player(character.party);
 	if (leader != undefined) {
 		follow(leader);
-		attack_leaders_target(leader)
+		attack_leaders_target(leader);
 	}
 }
 
@@ -155,7 +180,7 @@ function deep_smart_move(dest) {
 
 		var e = get_entity(dest.name);
 		if (e) {
-			if (can_move_to({x: dest.x, y: dest.y})) {
+			if (can_move_to(dest.x, dest.y)) {
 				return follow(e, dest.dist);
 			} else {
 				smart_move_p(e);
@@ -211,7 +236,7 @@ function run_merchant() {
 					if (character.gold > 0) {
 						bank_deposit(character.gold);
 					}
-					for(let i in character.items) {
+					for(let i = 0; i < character.items.length; i++) {
 						if (!character.items[i]) continue;
 						bank_store(i);
 						return;
@@ -240,7 +265,7 @@ function do_common_routine() {
 
 function give_gear(id, gear) {
 	var found_gear = false;
-	for(let i in character.items) {
+	for(let i=0; i < character.items.length; i++) {
 		let item = character.items[i];
 		if(!item) {
 			continue;
@@ -274,7 +299,7 @@ function init() {
 		}
 
 		for(let i in PARTY_MEMBERS) {
-			var e = get_entity(PARTY_MEMBERS[i]);
+			var e = get_player(PARTY_MEMBERS[i]);
 			if (e && e.name != MERCHANT) {
 				send_cm(e.name, {type: "send_loot"});
 			}
@@ -301,7 +326,7 @@ function init() {
 				if (m.name != MERCHANT) {
 					return;
 				}
-				for(let i in character.items) {
+				for(let i=0; i < character.items.length; i++) {
 					let item = character.items[i];
 					if(!item) {
 						continue;
@@ -322,13 +347,13 @@ function init() {
 					send_gold(MERCHANT, character.gold);
 					return;
 				}
-				for(let i in character.items) {
+				for(let i = 0; i < character.items.length; i++) {
 					var item = character.items[i];
 					if (!item) {
 						continue
 					}
-					is_hpot = item.name.indexOf("hpot") == 0;
-					is_mpot = item.name.indexOf("mpot") == 0;
+					let is_hpot = item.name.indexOf("hpot") == 0;
+					let is_mpot = item.name.indexOf("mpot") == 0;
 					if (!is_hpot && !is_mpot) {
 						log("sending " + item.name);
 						send_item(MERCHANT, i, item.q);
@@ -374,14 +399,4 @@ function is_inventory_empty() {
 	return used_inven_space == 0;
 }
 
-function is_character_active(id) {
-	var ac = get_active_characters();
-	for(c in ac) {
-		if(c == id) return true;
-	}
-	return false;
-}
-
-
 init();
-
