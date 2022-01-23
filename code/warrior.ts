@@ -50,8 +50,19 @@ setInterval(function() {
 	}
 }, 1000/5);
 
+global.set_msearch_by_target_type = function() {
+	state.attack_mode=true;
+	let target = get_targeted_monster();
+	state.msearch={type: target.mtype};
+}
+
+global.stop_attacking = function() {
+	state.attack_mode=false;
+	change_target(undefined);
+}
+
 function init_warrior() {
-	map_key("0","snippet","state.attack_mode=false;\nchange_target(undefined);");
-	map_key("T","snippet","state.attack_mode=true;state.msearch={type: character.target.type}");
+	map_key("0","snippet","stop_attacking()");
+	map_key("T","snippet","set_msearch_by_target_type()");
 }
 init_warrior();
