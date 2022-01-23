@@ -1,12 +1,8 @@
-import { do_common_routine, state, PARTY_LEAD, get_position, is_inventory_full, is_inventory_empty, deep_smart_move} from "./1/common"
+import { do_common_routine, state, PARTY_LEAD, get_position, is_inventory_full, is_inventory_empty, deep_smart_move, is_friendly} from "./1/common"
 
 state.task = undefined;
 
 init_merchant();
-
-module.exports = {
-	state
-};
 
 global.give_gear = give_gear;
 
@@ -46,15 +42,21 @@ setInterval(function(){
 			if(deep_smart_move({name: state.gear_receiver, x: state.p_lead_pos.x, y: state.p_lead_pos.y, map: state.p_lead_pos.map, max_dist: 5})) {
 				var item = character.items[state.give_inven_slot];
 				send_item(state.gear_receiver, state.give_inven_slot);
-				send_cm(state.gear_receiver, {type: "gear_up", gear: item});
 				state.task = undefined;
+				setTimeout(function() {
+					send_cm(state.gear_receiver, {type: "gear_up", gear: item});
+				}, 500);
 			}
+
 		} break;
 	}
 },1000/4); // Loops every 1/4 seconds.
 
 
 function give_gear(id: string, i: number) {
+	if(!is_friendly(id)) {
+		log("stop giving shit to unfriendly: " + id);
+	}
 	var found_gear = false;
 	let item = character.items[i];
 	if (!item) {
@@ -63,11 +65,11 @@ function give_gear(id: string, i: number) {
 
 	state.task = "give_gear";
 	state.give_inven_slot = i;
-	found_gear = true;
 	state.gear_receiver = id;
 	get_position(id);
 }
 
 function init_merchant() {
-	map_key("Q","snippet","exports.give_gear(character.target, 0)")
+	map_key("Q","snippet","give_gear(character.focus, 0)");
+	map_key("R", "snippet", "upgrade(1, 0)");
 }

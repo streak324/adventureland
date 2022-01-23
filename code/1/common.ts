@@ -19,6 +19,7 @@ interface State {
 	give_inven_slot: number,
 	gear_receiver: string,
 	banking: boolean,
+	item_sent: boolean,
 }
 
 var state: State = {
@@ -30,6 +31,7 @@ var state: State = {
 	give_inven_slot: -1,
 	gear_receiver: "",
 	banking: false,
+	item_sent: false,
 };
 
 function set_state(state_var, state_val) {
@@ -158,6 +160,7 @@ function init() {
 	}
 
 	global.on_party_invite = on_party_invite;
+	global.state = state;
 
 	setInterval(function() {
 		if (character.name != MERCHANT || state.task != "mule") {
@@ -188,7 +191,7 @@ function init() {
 				state.smart_result = undefined;
 				break;
 			case "gear_up":
-				log(m);
+				log(JSON.stringify(m.message));
 				if (m.name != MERCHANT) {
 					return;
 				}
@@ -205,7 +208,6 @@ function init() {
 						break;
 					}
 					if(!found_item) {
-						log("unable to find " + m.message.gear);
 					}
 				}
 				break;

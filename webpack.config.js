@@ -10,5 +10,5 @@ module.exports = {
     path: __dirname  + '/out/webpack',
 	library: 'exports',
   },
-  mode: "development",
+  mode: "production",
 };
