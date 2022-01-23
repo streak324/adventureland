@@ -10,10 +10,6 @@ setInterval(function(){
 	do_common_routine();
 	switch(state.task) {
 		case "mule": {
-			if (state.p_lead_pos == undefined) {
-				get_position(PARTY_LEAD);
-				return;
-			}
 			if (is_inventory_full()) {
 				state.banking = true;
 			} else if (is_inventory_empty()) {
@@ -21,7 +17,8 @@ setInterval(function(){
 			}
 
 			if (!state.banking) {
-				deep_smart_move({name: PARTY_LEAD, x: state.p_lead_pos.x, y: state.p_lead_pos.y, map: state.p_lead_pos.map, max_dist: 5})
+				state.dest = {id: PARTY_LEAD };
+				deep_smart_move(state.dest, 5);
 			} else {
 				if (deep_smart_move({map: "bank"})) {
 					if (character.gold > 0) {
@@ -36,12 +33,12 @@ setInterval(function(){
 			}
 		} break;
 		case "give_gear": {
-			if (state.p_lead_pos == undefined) {
+			if (state.dest == undefined) {
 				return;
 			}
-			if(deep_smart_move({name: state.gear_receiver, x: state.p_lead_pos.x, y: state.p_lead_pos.y, map: state.p_lead_pos.map, max_dist: 5})) {
+			if(deep_smart_move(state.dest, 5)) {
 				var item = character.items[state.give_inven_slot];
-				send_item(state.gear_receiver, state.give_inven_slot);
+				send_item(state.dest.id, state.give_inven_slot);
 				state.task = undefined;
 				setTimeout(function() {
 					send_cm(state.gear_receiver, {type: "gear_up", gear: item});
@@ -65,7 +62,6 @@ function give_gear(id: string, i: number) {
 
 	state.task = "give_gear";
 	state.give_inven_slot = i;
-	state.gear_receiver = id;
 	get_position(id);
 }
 

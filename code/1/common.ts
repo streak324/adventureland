@@ -5,17 +5,28 @@ const PARTY_MEMBERS=["TrogWarrior1", "TrogMage1", "TrogPriest1", "TrogMerch1"];
 const PARTY_LEAD = "TrogWarrior1";
 const MERCHANT = "TrogMerch1";
 const PERSIST_STATE_VARS = ["task", "msearch", "attack_mode"];
+interface Destination {
+	id?: string,
+	map?: string,
+	pos?: {
+		x: number 
+		y: number
+	},
+}
+
+enum PathResult {
+	NotCalculated=4,
+	Calculating=5,
+	Found=6,
+	NotFound=7,
+}
 
 interface State {
 	attack_mode: boolean;
 	msearch: {},
 	task: string
-	p_lead_pos: {
-		x: number,
-		y: number,
-		map: string,
-	},
-	smart_result: number,
+	dest: Destination,
+	path_result: PathResult,
 	give_inven_slot: number,
 	gear_receiver: string,
 	banking: boolean,
@@ -26,8 +37,8 @@ var state: State = {
 	attack_mode: false,
 	msearch: {},
 	task: "",
-	p_lead_pos: undefined,
-	smart_result: -1,
+	dest: undefined,
+	path_result: PathResult.NotCalculated,
 	give_inven_slot: -1,
 	gear_receiver: "",
 	banking: false,
@@ -91,35 +102,38 @@ function is_friendly(name) {
 }
 
 function smart_move_p(d) {
-	state.smart_result = -1;
+	state.path_result = PathResult.Calculating;
 	smart_move(d)
-		.then(_ => { state.smart_result = 1 })
-		.catch(_ => { state.smart_result = 0 });
+		.then(_ => { state.path_result = PathResult.Found })
+		.catch(_ => { state.path_result= PathResult.NotFound });
 }
 
 //returns true if it reached the specified position
-export function deep_smart_move(dest) {
-	if (smart.moving || state.smart_result === -1) {
+export function deep_smart_move(dest: Destination, dist?: number) {
+	if (smart.moving || state.path_result == PathResult.Calculating) {
 		return false;
 	}
-	if (dest.name) {
-		if (state.smart_result === 0) {
-			get_position(dest.name);
+	if (dest.id) {
+		if (state.path_result === PathResult.NotFound) {
+			get_position(dest.id);
 			return false;
 		}
 
-		var e = get_entity(dest.name);
+		var e = get_entity(dest.id);
 		if (e) {
-			if (can_move_to(dest.x, dest.y)) {
-				return follow(e, dest.dist);
+			if (can_move_to(e.x, e.y)) {
+				return follow(e, dist);
 			} else {
 				smart_move_p(e);
 			}
 			return false;
+		} else if (!dest.map || !dest.pos) {
+			get_position(dest.id);
+			return false;
 		} else if (dest.map != character.map) {
 			smart_move_p(dest.map);
 		} else {
-			smart_move_p({x: dest.x, y: dest.y});
+			smart_move_p({x: dest.pos.x, y: dest.pos.y});
 		}
 		return false
 	} else if (dest.map) {
@@ -127,7 +141,7 @@ export function deep_smart_move(dest) {
 			return true;
 		}
 
-		if (state.smart_result === 0) {
+		if (state.path_result === PathResult.NotFound) {
 			log("deep_smart_move: UNABLE TO FIND " + dest.map, "red");
 			return false;
 		}
@@ -141,7 +155,7 @@ export function deep_smart_move(dest) {
 }
 
 export function get_position(name) {
-	state.p_lead_pos = undefined;
+	state.dest = undefined;
 	send_cm(name, {type: "send_coords"});
 }
 
@@ -184,11 +198,11 @@ function init() {
 		switch(m.message.type) {
 			case "send_coords":
 				log(m);
-				send_cm(m.name, {type: "coords", pos: { x: character.x, y: character.y, map: character.map, dist: 5}});
+				send_cm(m.name, {type: "coords", dest: { id: character.id, pos: {x: character.x, y: character.y}, map: character.map}});
 				break;
 			case "coords":
-				state.p_lead_pos = m.message.pos;
-				state.smart_result = undefined;
+				state.dest = m.message.dest;
+				state.path_result = PathResult.NotCalculated;
 				break;
 			case "gear_up":
 				log(JSON.stringify(m.message));

@@ -49,3 +49,9 @@ setInterval(function() {
 		attack(target);
 	}
 }, 1000/5);
+
+function init_warrior() {
+	map_key("0","snippet","state.attack_mode=false;\nchange_target(undefined);");
+	map_key("T","snippet","state.attack_mode=true;state.msearch={type: character.target.type}");
+}
+init_warrior();
