@@ -72,4 +72,6 @@ function give_gear(id: string, i: number) {
 function init_merchant() {
 	map_key("Q","snippet","give_gear(character.focus, 0)");
 	map_key("R", "snippet", "upgrade(1, 0)");
+	map_key("M", "snippet", "state.task='mule'")
+	map_key("0", "snippet", "state.task='none'")
 }
